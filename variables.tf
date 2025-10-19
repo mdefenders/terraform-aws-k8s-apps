@@ -58,3 +58,8 @@ variable "vpc_id" {
   description = "The ID of the VPC where the EKS cluster is deployed."
   type        = string
 }
+
+variable "ingress_chart_version" {
+  description = "The Helm chart version for NGINX Ingress Controller"
+  type        = string
+}
