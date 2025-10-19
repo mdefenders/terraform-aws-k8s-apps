@@ -49,6 +49,7 @@ resource "helm_release" "cluster_autoscaler" {
     { name = "rbac.serviceAccount.name", value = "cluster-autoscaler" },
     { name = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn", value = var.autoscaler_role_arn }
   ]
+  atomic = true
 
 }
 
@@ -62,4 +63,6 @@ resource "helm_release" "metrics_server" {
     name  = "args"
     value = "{--kubelet-insecure-tls,--kubelet-preferred-address-types=InternalIP,--metric-resolution=15s}"
   }]
+  atomic = true
+
 }
