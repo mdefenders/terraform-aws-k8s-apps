@@ -63,3 +63,7 @@ variable "ingress_chart_version" {
   description = "The Helm chart version for NGINX Ingress Controller"
   type        = string
 }
+variable "ingress_public" {
+  description = "Whether the nginx ingress service should be internet-facing (public). If false, it will be internal."
+  type        = bool
+}
