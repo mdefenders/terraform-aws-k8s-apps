@@ -84,6 +84,8 @@ resource "helm_release" "aws_load_balancer_controller" {
   ]
 }
 
+locals { lb_optlb_public = var.ingress_public ? "internet-facing" : "internal" }
+
 # NGINX Ingress Controller with Helm
 resource "helm_release" "nginx_ingress" {
   name       = "ingress-nginx"
@@ -94,14 +96,11 @@ resource "helm_release" "nginx_ingress" {
 
   create_namespace = true
 
-  set = concat([
+  set = [
     { name = "controller.service.type", value = "LoadBalancer" },
     { name = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-type", value = "nlb" },
-    { name = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-l oad-balancer-cross-zone-load-balancing-enabled", value = "true" }
-  ], var.ingress_public ? [
-    { name = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-scheme", value = "internet-facing" }
-  ] : [
-    { name = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-scheme", value = "internal" }
-  ])
+    { name = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-cross-zone-load-balancing-enabled", value = "true" },
+    { name = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-scheme", value = local.lb_optlb_public }
+  ]
   atomic = true
 }
