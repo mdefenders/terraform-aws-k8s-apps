@@ -47,7 +47,60 @@ resource "helm_release" "cluster_autoscaler" {
     { name = "awsRegion", value = var.aws_region },
     { name = "rbac.serviceAccount.create", value = "true" },
     { name = "rbac.serviceAccount.name", value = "cluster-autoscaler" },
-    { name  = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn", value = var.autoscaler_role_arn }
+    { name = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn", value = var.autoscaler_role_arn }
   ]
+  atomic = true
 
+}
+
+resource "helm_release" "metrics_server" {
+  name       = "metrics-server"
+  repository = "https://kubernetes-sigs.github.io/metrics-server/"
+  chart      = "metrics-server"
+  namespace  = "kube-system"
+
+  set = [{
+    name  = "args"
+    value = "{--kubelet-insecure-tls,--kubelet-preferred-address-types=InternalIP,--metric-resolution=15s}"
+  }]
+  atomic = true
+}
+
+# Helm Release for AWS Load Balancer Controller
+resource "helm_release" "aws_load_balancer_controller" {
+  name       = "aws-load-balancer-controller"
+  repository = "https://aws.github.io/eks-charts"
+  chart      = "aws-load-balancer-controller"
+  namespace  = "kube-system"
+  version    = var.alb_chart_version
+
+  set = [
+    { name = "clusterName", value = var.eks_cluster_name },
+    { name = "serviceAccount.create", value = "true" },
+    { name = "serviceAccount.name", value = "aws-load-balancer-controller" },
+    { name = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn", value = var.alb_role_arn },
+    { name = "vpcId", value = var.vpc_id },
+    { name = "region", value = var.aws_region }
+  ]
+}
+
+locals { lb_optlb_public = var.ingress_public ? "internet-facing" : "internal" }
+
+# NGINX Ingress Controller with Helm
+resource "helm_release" "nginx_ingress" {
+  name       = "ingress-nginx"
+  repository = "https://kubernetes.github.io/ingress-nginx"
+  chart      = "ingress-nginx"
+  namespace  = "ingress-nginx"
+  version    = var.ingress_chart_version
+
+  create_namespace = true
+
+  set = [
+    { name = "controller.service.type", value = "LoadBalancer" },
+    { name = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-type", value = "nlb" },
+    { name = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-cross-zone-load-balancing-enabled", value = "true" },
+    { name = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-scheme", value = local.lb_optlb_public }
+  ]
+  atomic = true
 }
