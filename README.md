@@ -1,1 +1,0 @@
-# terraform-aws-k8s-apps
