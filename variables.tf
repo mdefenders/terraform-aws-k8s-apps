@@ -43,6 +43,18 @@ variable "autoscaler_role_arn" {
   type        = string
 }
 variable "aws_region" {
-    description = "The AWS region where the EKS cluster is deployed."
-    type        = string
+  description = "The AWS region where the EKS cluster is deployed."
+  type        = string
+}
+variable "alb_chart_version" {
+  description = "The Helm chart version for AWS Load Balancer Controller"
+  type        = string
+}
+variable "alb_role_arn" {
+  description = "The ARN of the IAM role for the AWS Load Balancer Controller."
+  type        = string
+}
+variable "vpc_id" {
+  description = "The ID of the VPC where the EKS cluster is deployed."
+  type        = string
 }

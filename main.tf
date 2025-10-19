@@ -64,5 +64,22 @@ resource "helm_release" "metrics_server" {
     value = "{--kubelet-insecure-tls,--kubelet-preferred-address-types=InternalIP,--metric-resolution=15s}"
   }]
   atomic = true
+}
 
+# Helm Release for AWS Load Balancer Controller
+resource "helm_release" "aws_load_balancer_controller" {
+  name       = "aws-load-balancer-controller"
+  repository = "https://aws.github.io/eks-charts"
+  chart      = "aws-load-balancer-controller"
+  namespace  = "kube-system"
+  version    = var.alb_chart_version
+
+  set = [
+    { name = "clusterName", value = var.eks_cluster_name },
+    { name = "serviceAccount.create", value = "true" },
+    { name = "serviceAccount.name", value = "aws-load-balancer-controller" },
+    { name = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn", value = var.alb_role_arn },
+    { name = "vpcId", value = var.vpc_id },
+    { name = "region", value = var.aws_region }
+  ]
 }
