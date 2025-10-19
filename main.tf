@@ -47,7 +47,7 @@ resource "helm_release" "cluster_autoscaler" {
     { name = "awsRegion", value = var.aws_region },
     { name = "rbac.serviceAccount.create", value = "true" },
     { name = "rbac.serviceAccount.name", value = "cluster-autoscaler" },
-    { name  = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn", value = var.autoscaler_role_arn }
+    { name = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn", value = var.autoscaler_role_arn }
   ]
 
 }
@@ -58,8 +58,8 @@ resource "helm_release" "metrics_server" {
   chart      = "metrics-server"
   namespace  = "kube-system"
 
-  set {
+  set = [{
     name  = "args"
     value = "{--kubelet-insecure-tls,--kubelet-preferred-address-types=InternalIP,--metric-resolution=15s}"
-  }
+  }]
 }
