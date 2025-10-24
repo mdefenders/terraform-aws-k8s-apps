@@ -88,6 +88,7 @@ locals { lb_optlb_public = var.ingress_public ? "internet-facing" : "internal" }
 
 # NGINX Ingress Controller with Helm
 resource "helm_release" "nginx_ingress" {
+  count      = var.deploy_nginx_ingress ? 1 : 0
   name       = "ingress-nginx"
   repository = "https://kubernetes.github.io/ingress-nginx"
   chart      = "ingress-nginx"

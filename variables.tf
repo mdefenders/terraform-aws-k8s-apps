@@ -66,4 +66,11 @@ variable "ingress_chart_version" {
 variable "ingress_public" {
   description = "Whether the nginx ingress service should be internet-facing (public). If false, it will be internal."
   type        = bool
+  default     = false
+}
+
+variable "deploy_nginx_ingress" {
+  description = "Whether to deploy the NGINX Ingress Controller. Disabled by default."
+  type        = bool
+  default     = false
 }
