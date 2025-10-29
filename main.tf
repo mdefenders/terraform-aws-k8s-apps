@@ -1,27 +1,13 @@
-resource "google_secret_manager_secret" "github_token" {
-  secret_id = var.github_token_id
-  replication {
-    auto {}
-  }
-}
-resource "google_secret_manager_secret_version" "github_token_version" {
-  secret      = google_secret_manager_secret.github_token.id
-  secret_data = var.github_token
-}
-data "google_secret_manager_secret_version" "github_token" {
-  secret  = google_secret_manager_secret.github_token.secret_id
-  version = "latest"
-}
-
-resource "kubernetes_secret" "argocd_github_token" {
-  metadata {
-    name      = "mdefenders-github-token"
-    namespace = "argocd"
-  }
-  data = {
-    token = data.google_secret_manager_secret_version.github_token.secret_data
-  }
-  depends_on = [helm_release.argocd]
+resource "helm_release" "argocd" {
+  name             = "argocd"
+  namespace        = "argocd"
+  repository       = "https://argoproj.github.io/argo-helm"
+  chart            = "argo-cd"
+  version          = var.argocd_chart_version
+  create_namespace = true
+  atomic           = true
+  timeout          = 600
+  replace          = true # allow reuse of name if a previous failed release metadata exists
 }
 
 resource "helm_release" "appsets" {
@@ -46,30 +32,76 @@ resource "helm_release" "appsets" {
   atomic     = true
   depends_on = [helm_release.argocd]
 }
-resource "helm_release" "argocd" {
-  name             = "argocd"
-  namespace        = "argocd"
-  repository       = "https://argoproj.github.io/argo-helm"
-  chart            = "argo-cd"
-  version          = var.argocd_chart_version
-  create_namespace = true
-  atomic           = true
-  timeout          = 600
-  depends_on       = [google_secret_manager_secret_version.github_token_version]
+
+# Helm Release for Cluster Autoscaler
+resource "helm_release" "cluster_autoscaler" {
+  name       = "cluster-autoscaler"
+  repository = "https://kubernetes.github.io/autoscaler"
+  chart      = "cluster-autoscaler"
+  namespace  = "kube-system"
+  version    = var.autoscaler_chart_version
+  timeout    = 600
+
+  set = [
+    { name = "autoDiscovery.clusterName", value = var.eks_cluster_name },
+    { name = "awsRegion", value = var.aws_region },
+    { name = "rbac.serviceAccount.create", value = "true" },
+    { name = "rbac.serviceAccount.name", value = "cluster-autoscaler" },
+    { name = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn", value = var.autoscaler_role_arn }
+  ]
+  atomic = true
+
 }
 
-resource "helm_release" "gateways" {
-  name       = "gke-gateways"
-  namespace  = "default"
-  repository = "https://mdefenders.github.io/helmcharts"
-  chart      = "gke-gateways"
-  version    = var.gateways_chart_version
-  atomic     = true
-  timeout    = 600
-  values = [
-    yamlencode({
-      project          = var.gw_project_id
-      gatewayClassName = var.gw_class
-    })
+resource "helm_release" "metrics_server" {
+  name       = "metrics-server"
+  repository = "https://kubernetes-sigs.github.io/metrics-server/"
+  chart      = "metrics-server"
+  namespace  = "kube-system"
+
+  set = [{
+    name  = "args"
+    value = "{--kubelet-insecure-tls,--kubelet-preferred-address-types=InternalIP,--metric-resolution=15s}"
+  }]
+  atomic = true
+}
+
+# Helm Release for AWS Load Balancer Controller
+resource "helm_release" "aws_load_balancer_controller" {
+  name       = "aws-load-balancer-controller"
+  repository = "https://aws.github.io/eks-charts"
+  chart      = "aws-load-balancer-controller"
+  namespace  = "kube-system"
+  version    = var.alb_chart_version
+
+  set = [
+    { name = "clusterName", value = var.eks_cluster_name },
+    { name = "serviceAccount.create", value = "true" },
+    { name = "serviceAccount.name", value = "aws-load-balancer-controller" },
+    { name = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn", value = var.alb_role_arn },
+    { name = "vpcId", value = var.vpc_id },
+    { name = "region", value = var.aws_region }
   ]
+}
+
+locals { lb_optlb_public = var.ingress_public ? "internet-facing" : "internal" }
+
+# NGINX Ingress Controller with Helm
+resource "helm_release" "nginx_ingress" {
+  count      = var.deploy_nginx_ingress ? 1 : 0
+  name       = "ingress-nginx"
+  repository = "https://kubernetes.github.io/ingress-nginx"
+  chart      = "ingress-nginx"
+  namespace  = "ingress-nginx"
+  version    = var.ingress_chart_version
+
+  create_namespace = true
+
+  set = [
+    { name = "controller.service.type", value = "LoadBalancer" },
+    { name = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-type", value = "nlb" },
+    { name = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-cross-zone-load-balancing-enabled", value = "true" },
+    { name = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-scheme", value = local.lb_optlb_public }
+  ]
+  atomic = true
 }
